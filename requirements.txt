@@ -1,0 +1,5 @@
+cm_client
+sh
+argparse
+requests
+jira
