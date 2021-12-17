@@ -9,6 +9,9 @@ from typing import List
 import requests
 import sh as sh
 
+DIFF_KEY = "diff"
+PATCH_KEY = "patch"
+
 COMMIT_MESSAGE_PREFIX = "Subject"
 COMMIT_JIRA_REGEX = re.compile(".*?(YARN-\d+|HADOOP-\d+).*")
 PATH_PREFIX = "diff --git"
@@ -16,7 +19,6 @@ PATH_PREFIX = "diff --git"
 VAR_PLACEHOLDER = "$$"
 GITHUB_PR_PATCH_URL_TEMPLATE = f"https://github.com/apache/hadoop/pull/{VAR_PLACEHOLDER}.patch"
 GITHUB_PR_DIFF_URL_TEMPLATE = f"https://github.com/apache/hadoop/pull/{VAR_PLACEHOLDER}.diff"
-PATH_LIMIT = 50
 LOG = logging.getLogger(__name__)
 
 
@@ -91,9 +93,6 @@ def extract_jira_and_paths_from_patch_file(pr_id, patch_file):
                 path = line.lstrip(PATH_PREFIX).split(" ")[0].lstrip("a/ ")
                 if path:
                     paths.append(path)
-
-    if len(paths) > PATH_LIMIT:
-        paths = paths[:PATH_LIMIT]
     return jira, paths
 
 
@@ -118,16 +117,16 @@ def process(pr_ids: List[str], timestamp: str):
 
         print("Downloading Github PR diff file: {}".format(full_github_diff_url))
         diff_file = download_file(full_github_diff_url, join_path(pr_dir, f"{pr_id}_{timestamp}.diff"))
-        pr_id_to_files[pr_id]["patch"] = patch_file
-        pr_id_to_files[pr_id]["diff"] = diff_file
+        pr_id_to_files[pr_id][PATCH_KEY] = patch_file
+        pr_id_to_files[pr_id][DIFF_KEY] = diff_file
 
     print("Downloaded files: " + str(pr_id_to_files))
 
     jira_ids = set()
     jira_id = None
     for pr_id, files_for_pr in pr_id_to_files.items():
-        patch_file = files_for_pr["patch"]
-        diff_file = files_for_pr["diff"]
+        patch_file = files_for_pr[PATCH_KEY]
+        diff_file = files_for_pr[DIFF_KEY]
         # Determine jira ID from patch file
         jira_id, paths = extract_jira_and_paths_from_patch_file(pr_id, patch_file)
         jira_ids.add(jira_id)
@@ -139,7 +138,7 @@ def process(pr_ids: List[str], timestamp: str):
 
     diff_pairs = [(pr_ids[0], i) for i in pr_ids[1:]]
     print("PR diffs will be created for: {}".format(diff_pairs))
-    diff_files = [(pr_id_to_files[pair[0]]["diff"], pr_id_to_files[pair[1]]["diff"]) for pair in diff_pairs]
+    diff_files = [(pr_id_to_files[pair[0]][DIFF_KEY], pr_id_to_files[pair[1]][DIFF_KEY]) for pair in diff_pairs]
     for files in diff_files:
         file_1_pr_id = os.path.basename(files[0]).split("_")[0]
         file_2_pr_id = os.path.basename(files[1]).split("_")[0]
