@@ -4,13 +4,11 @@ import errno
 import logging
 import os
 import re
+from collections import namedtuple
 from os.path import expanduser
 from typing import List
 import requests
 import sh as sh
-
-DIFF_KEY = "diff"
-PATCH_KEY = "patch"
 
 COMMIT_MESSAGE_PREFIX = "Subject"
 COMMIT_JIRA_REGEX = re.compile(".*?(YARN-\d+|HADOOP-\d+).*")
@@ -20,6 +18,8 @@ VAR_PLACEHOLDER = "$$"
 GITHUB_PR_PATCH_URL_TEMPLATE = f"https://github.com/apache/hadoop/pull/{VAR_PLACEHOLDER}.patch"
 GITHUB_PR_DIFF_URL_TEMPLATE = f"https://github.com/apache/hadoop/pull/{VAR_PLACEHOLDER}.diff"
 LOG = logging.getLogger(__name__)
+
+UpstreamJira = namedtuple('UpstreamJira', ['diff', 'patch'])
 
 
 def get_github_patch_url(pr_id):
@@ -117,18 +117,15 @@ def process(pr_ids: List[str], timestamp: str):
 
         print("Downloading Github PR diff file: {}".format(full_github_diff_url))
         diff_file = download_file(full_github_diff_url, join_path(pr_dir, f"{pr_id}_{timestamp}.diff"))
-        pr_id_to_files[pr_id][PATCH_KEY] = patch_file
-        pr_id_to_files[pr_id][DIFF_KEY] = diff_file
+        pr_id_to_files[pr_id] = UpstreamJira(diff_file, patch_file)
 
     print("Downloaded files: " + str(pr_id_to_files))
 
     jira_ids = set()
     jira_id = None
-    for pr_id, files_for_pr in pr_id_to_files.items():
-        patch_file = files_for_pr[PATCH_KEY]
-        diff_file = files_for_pr[DIFF_KEY]
+    for pr_id, jira in pr_id_to_files.items():  # type: str, UpstreamJira
         # Determine jira ID from patch file
-        jira_id, paths = extract_jira_and_paths_from_patch_file(pr_id, patch_file)
+        jira_id, paths = extract_jira_and_paths_from_patch_file(pr_id, jira.patch)
         jira_ids.add(jira_id)
         if len(jira_ids) > 1:
             raise ValueError("Expected Github PRs to belong to one single jira. Multiple Jira IDs found: %s".format(jira_ids))
@@ -138,7 +135,7 @@ def process(pr_ids: List[str], timestamp: str):
 
     diff_pairs = [(pr_ids[0], i) for i in pr_ids[1:]]
     print("PR diffs will be created for: {}".format(diff_pairs))
-    diff_files = [(pr_id_to_files[pair[0]][DIFF_KEY], pr_id_to_files[pair[1]][DIFF_KEY]) for pair in diff_pairs]
+    diff_files = [(pr_id_to_files[pair[0]].diff, pr_id_to_files[pair[1]].diff) for pair in diff_pairs]
     for files in diff_files:
         file_1_pr_id = os.path.basename(files[0]).split("_")[0]
         file_2_pr_id = os.path.basename(files[1]).split("_")[0]
@@ -152,8 +149,8 @@ def process(pr_ids: List[str], timestamp: str):
         print("Created diff HTML file: {}".format(html_full_path))
 
         # UNCOMMENT THIS TO PRINT THE COMMAND WAS RUNNING
-        #print(vim.cmd)
-        #print(vim.call_args)
+        # print(vim.cmd)
+        # print(vim.call_args)
     return True
 
 
