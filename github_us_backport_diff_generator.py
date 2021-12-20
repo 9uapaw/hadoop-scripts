@@ -144,11 +144,10 @@ def process(pr_ids: List[str], timestamp: str):
         file_2_pr_id = os.path.basename(files[1]).split("_")[0]
         html_name = f"{file_1_pr_id}-{file_2_pr_id}_{jira_id}.html"
         html_full_path = join_path(script_html_out_dir, html_name)
-        # CLI equivalent command:
-        # vim -d -c "TOhtml” -c "w! result.html” -c "qa!” patch1 patch2
         print(str(files))
+
         # EXAMPLE full command:
-        # vim /Users/snemeth/version1.diff /Users/snemeth/version2.diff -d -c TOhtml -c 'w! /tmp/html' -c qa!
+        # vim $HOME/version1.diff $HOME/version2.diff -d -c TOhtml -c 'w! /tmp/html' -c qa!
         vim = sh.vim(files[0], files[1], "-d", "-c", "TOhtml", "-c", f"\"w! {html_full_path}\"", "-c", "diffoff!", "-c", "qa!")
         print("Created diff HTML file: {}".format(html_full_path))
 
