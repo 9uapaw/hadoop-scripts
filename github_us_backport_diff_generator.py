@@ -146,12 +146,15 @@ def process(pr_ids: List[str], timestamp: str):
         html_full_path = join_path(script_html_out_dir, html_name)
         # CLI equivalent command:
         # vim -d -c "TOhtml” -c "w! result.html” -c "qa!” patch1 patch2
-        vim = sh.vim("-d", "-c", "TOhtml", "-c", f"w! {html_full_path}", "-c", "qa!", files[0], files[1])
+        print(str(files))
+        # EXAMPLE full command:
+        # vim /Users/snemeth/version1.diff /Users/snemeth/version2.diff -d -c TOhtml -c 'w! /tmp/html' -c qa!
+        vim = sh.vim(files[0], files[1], "-d", "-c", "TOhtml", "-c", f"\"w! {html_full_path}\"", "-c", "diffoff!", "-c", "qa!")
         print("Created diff HTML file: {}".format(html_full_path))
 
-        # UNCOMMENT THIS TO KNOW WHAT COMMAND WAS RUNNING
-        # print(vim.cmd)
-        # print(vim.call_args)
+        # UNCOMMENT THIS TO PRINT THE COMMAND WAS RUNNING
+        #print(vim.cmd)
+        #print(vim.call_args)
     return True
 
 
