@@ -26,7 +26,6 @@ def download_file(url):
 
     return local_filename
 
-
 def process(revision: str):
     revision: List[str] = revision.split("/")
     revision_no = revision[0]
@@ -72,12 +71,15 @@ def process(revision: str):
     download_file(GITHUB_COMMIT_URL_TEMPLATE.format(sha=upstream_commit))
     html_name = f"{revision[0]}-{revision[1]}_{jira}"
 
-    sh.nvim("-d", "-c", "TOhtml", "-c", "w! {}.html".format(html_name), "-c", "qa!", gerrit_file, "{}.diff".format(upstream_commit))
+    vim = sh.vim("-d", "-c", "TOhtml", "-c", "w! {}.html".format(html_name), "-c", "qa!", gerrit_file, "{}.diff".format(upstream_commit))
 
     os.remove(gerrit_file)
     os.remove("{}.diff".format(upstream_commit))
 
     print("Created diff HTML {}.html".format(html_name))
+    # UNCOMMENT THIS TO PRINT THE COMMAND WAS RUNNING
+    # print(vim.cmd)
+    # print(vim.call_args)
 
     return True
 
