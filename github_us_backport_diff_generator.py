@@ -53,15 +53,6 @@ def ensure_dir_created(dirname, log_exception=False):
     return dirname
 
 
-def download_file_old(url):
-    local_filename = url.split('/')[-1]
-    with requests.get(url) as r:
-        with open(local_filename, 'w') as f:
-            f.write(r.text)
-
-    return local_filename
-
-
 def download_file(url, dest_file):
     # NOTE the stream=True parameter below
     with requests.get(url, stream=True) as r:
@@ -135,17 +126,17 @@ def process(pr_ids: List[str], timestamp: str):
 
     diff_pairs = [(pr_ids[0], i) for i in pr_ids[1:]]
     print("PR diffs will be created for: {}".format(diff_pairs))
-    diff_files = [(pr_id_to_files[pair[0]].diff, pr_id_to_files[pair[1]].diff) for pair in diff_pairs]
-    for files in diff_files:
-        file_1_pr_id = os.path.basename(files[0]).split("_")[0]
-        file_2_pr_id = os.path.basename(files[1]).split("_")[0]
+    diff_files = [(pr_id_to_files[pr1].diff, pr_id_to_files[pr2].diff) for pr1, pr2 in diff_pairs]
+    for file1, file2 in diff_files:
+        file_1_pr_id = os.path.basename(file1).split("_")[0]
+        file_2_pr_id = os.path.basename(file2).split("_")[0]
         html_name = f"{file_1_pr_id}-{file_2_pr_id}_{jira_id}.html"
         html_full_path = join_path(script_html_out_dir, html_name)
-        print(str(files))
+        print("Creating diff of files: {}, {}".format(file1, file2))
 
         # EXAMPLE full command:
         # vim $HOME/version1.diff $HOME/version2.diff -d -c TOhtml -c 'w! /tmp/html' -c qa!
-        vim = sh.vim(files[0], files[1], "-d", "-c", "TOhtml", "-c", f"\"w! {html_full_path}\"", "-c", "diffoff!", "-c", "qa!")
+        vim = sh.vim(file1, file2, "-d", "-c", "TOhtml", "-c", f"\"w! {html_full_path}\"", "-c", "diffoff!", "-c", "qa!")
         print("Created diff HTML file: {}".format(html_full_path))
 
         # UNCOMMENT THIS TO PRINT THE COMMAND WAS RUNNING
