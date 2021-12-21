@@ -83,6 +83,9 @@ def process(revision: str):
 
 
 if __name__ == "__main__":
+    """
+    Example usage: backport-diff-generator 140697/1
+    """
     parser = argparse.ArgumentParser()
     parser.add_argument("revision", nargs="*")
     parser.add_argument("--file")
