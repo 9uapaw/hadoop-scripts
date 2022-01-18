@@ -3,3 +3,6 @@ sh~=1.14.2
 argparse~=1.4.0
 requests~=2.26.0
 jira
+feedparser
+tabulate
+

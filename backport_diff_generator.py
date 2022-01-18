@@ -1,8 +1,6 @@
 import argparse
 import os
 import re
-import shutil
-from pprint import pprint
 
 import sh
 from typing import List
@@ -11,28 +9,42 @@ import requests
 
 PATCH_ZIP = "patch?zip"
 COMMIT_MESSAGE_PREFIX = "Subject"
-COMMIT_JIRA_REGEX = re.compile(".*?(YARN-\d+|HADOOP-\d+).*")
+COMMIT_JIRA_REGEX = re.compile(".*?(YARN-\d+|HADOOP-\d+|MAPREDUCE-\d+).*")
 PATH_PREFIX = "diff --git"
 GITHUB_COMMIT_API = "https://api.github.com/repos/apache/hadoop/commits"
 GITHUB_COMMIT_URL_TEMPLATE = "https://github.com/apache/hadoop/commit/{sha}.diff"
 PATH_LIMIT = 20
 
 
-def download_file(url):
+def download_file(url) -> str or None:
     local_filename = url.split('/')[-1]
+    write_mode = 'w'
     with requests.get(url) as r:
-        with open(local_filename, 'w') as f:
-            f.write(r.text)
+        content = r.text
+        if 'zip' in local_filename:
+            write_mode = 'wb'
+            content = r.content
+
+        if r.status_code != 200:
+            return None
+
+        with open(local_filename, write_mode) as f:
+            f.write(content)
 
     return local_filename
 
-def process(revision: str):
+
+def process(revision: str, max_change_num: int = None):
     revision: List[str] = revision.split("/")
     revision_no = revision[0]
     patch_set = revision[1]
+    patchset_trial = range(max_change_num, 0, -1) if max_change_num else {patch_set}
 
-    print("Downloading revision {}".format(revision_no))
-    sh.curl("-L", "-O", "https://gerrit.sjc.cloudera.com/changes/cdh%2Fhadoop~{revision}/revisions/{patch_set}/patch?zip".format(revision=revision_no, patch_set=patch_set))
+    for patch in patchset_trial:
+        print("Trying to download revision {} of Patchset {} ".format(revision_no, patch))
+        patch_set = patch
+        if download_gerrit_revision(patch, revision_no):
+            break
 
     with ZipFile(PATCH_ZIP, 'r') as zip:
         gerrit_file = zip.filelist[0].filename
@@ -69,7 +81,7 @@ def process(revision: str):
 
     print("Downloading upstream commit {}".format(upstream_commit))
     download_file(GITHUB_COMMIT_URL_TEMPLATE.format(sha=upstream_commit))
-    html_name = f"{revision[0]}-{revision[1]}_{jira}"
+    html_name = f"{revision_no}-{patch_set}_{jira}"
 
     vim = sh.vim("-d", "-c", "TOhtml", "-c", "w! {}.html".format(html_name), "-c", "qa!", gerrit_file, "{}.diff".format(upstream_commit))
 
@@ -84,6 +96,11 @@ def process(revision: str):
     return True
 
 
+def download_gerrit_revision(patch_set, revision_no) -> str or None:
+    return download_file("https://gerrit.sjc.cloudera.com/changes/cdh%2Fhadoop~{revision}/revisions/{patch_set}/patch?zip".format(
+        revision=revision_no, patch_set=patch_set))
+
+
 if __name__ == "__main__":
     """
     Example usage: backport-diff-generator 140697/1
@@ -94,6 +111,7 @@ if __name__ == "__main__":
     args = parser.parse_args()
     revisions = args.revision
     rev_copy = revisions.copy()
+    max_change_num = None
 
     if args.file:
         with open(args.file, 'r') as f:
@@ -102,14 +120,16 @@ if __name__ == "__main__":
     for i, rev in enumerate(rev_copy):
         if "-" in rev:
             start, end = rev.split("-")
-            start_num = int(start.split("/")[0])
-            end_num = int(end.split("/")[0])
+            start_num, start_change_num = map(int, start.split("/"))
+            end_num, end_change_num = map(int, end.split('/'))
+            max_change_num = max(start_change_num, end_change_num)
             revisions.remove(rev)
-            revisions.extend([f"{i}/1" for i in range(start_num, end_num + 1)])
+            converted_gerrit_revision = [f"{i}/{start_change_num}" for i in range(start_num, end_num + 1)]
+            revisions.extend(converted_gerrit_revision)
 
     unsuccessful = []
     for rev in revisions:
-        if not process(rev):
+        if not process(rev, max_change_num):
             unsuccessful.append(rev)
 
     if unsuccessful:
