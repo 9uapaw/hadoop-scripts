@@ -1,0 +1,23 @@
+[[source]]
+name = "pypi"
+url = "https://pypi.org/simple"
+verify_ssl = true
+
+[dev-packages]
+
+[packages]
+cm-client = "*"
+sh = "*"
+argparse = "*"
+requests = "*"
+pptree = "*"
+scrapy = "==2.4.1"
+jira = "==2.0.0"
+numpy = "*"
+matplotlib = "*"
+scipy = "*"
+feedparser = "*"
+tabulate = "*"
+
+[requires]
+python_version = "3.9"
