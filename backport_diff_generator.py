@@ -135,7 +135,7 @@ if __name__ == "__main__":
             end_change_num, end_patchset_num = map(int, end_rev.split(GERRIT_PATCHSET_SEPARATOR))
             max_change_num = max(start_patchset_num, end_patchset_num)
             revisions.remove(rev)
-            converted_gerrit_revision = [f"{i}/{start_patchset_num}" for i in range(start_change_num, end_change_num + 1)]
+            converted_gerrit_revision = [f"{i}{GERRIT_PATCHSET_SEPARATOR}{start_patchset_num}" for i in range(start_change_num, end_change_num + 1)]
             revisions.extend(converted_gerrit_revision)
 
     unsuccessful = []
