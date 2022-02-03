@@ -7,6 +7,9 @@ from typing import List
 from zipfile import ZipFile
 import requests
 
+REVISION_RANGE_SEPARATOR = "-"
+GERRIT_PATCHSET_SEPARATOR = "/"
+
 PATCH_ZIP = "patch?zip"
 COMMIT_MESSAGE_PREFIX = "Subject"
 COMMIT_JIRA_REGEX = re.compile(".*?(YARN-\d+|HADOOP-\d+|MAPREDUCE-\d+).*")
@@ -101,12 +104,17 @@ def download_gerrit_revision(patch_set, revision_no) -> str or None:
         revision=revision_no, patch_set=patch_set))
 
 
+def validate_revision(rev):
+    if GERRIT_PATCHSET_SEPARATOR not in rev:
+        raise ValueError("Invalid revision: '{}'. Must contain character '{}'".format(rev, GERRIT_PATCHSET_SEPARATOR))
+
+
 if __name__ == "__main__":
     """
     Example usage: backport-diff-generator 140697/1
     """
     parser = argparse.ArgumentParser()
-    parser.add_argument("revision", nargs="*")
+    parser.add_argument("revision", nargs="+")
     parser.add_argument("--file")
     args = parser.parse_args()
     revisions = args.revision
@@ -118,10 +126,13 @@ if __name__ == "__main__":
             revisions = f.readlines()
 
     for i, rev in enumerate(rev_copy):
-        if "-" in rev:
-            start, end = rev.split("-")
-            start_num, start_change_num = map(int, start.split("/"))
-            end_num, end_change_num = map(int, end.split('/'))
+        if REVISION_RANGE_SEPARATOR in rev:
+            start, end = rev.split(REVISION_RANGE_SEPARATOR)
+            validate_revision(start)
+            validate_revision(end)
+
+            start_num, start_change_num = map(int, start.split(GERRIT_PATCHSET_SEPARATOR))
+            end_num, end_change_num = map(int, end.split(GERRIT_PATCHSET_SEPARATOR))
             max_change_num = max(start_change_num, end_change_num)
             revisions.remove(rev)
             converted_gerrit_revision = [f"{i}/{start_change_num}" for i in range(start_num, end_num + 1)]
@@ -129,11 +140,14 @@ if __name__ == "__main__":
 
     unsuccessful = []
     for rev in revisions:
+        validate_revision(rev)
         if not process(rev, max_change_num):
             unsuccessful.append(rev)
 
     if unsuccessful:
         print("Unsuccessful revision comparison:")
         [print(rev) for rev in unsuccessful]
+        exit(2)
     else:
         print("All revision comparison generation were successful")
+        exit(0)
