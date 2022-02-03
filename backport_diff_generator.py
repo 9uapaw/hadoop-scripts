@@ -127,15 +127,15 @@ if __name__ == "__main__":
 
     for i, rev in enumerate(rev_copy):
         if REVISION_RANGE_SEPARATOR in rev:
-            start, end = rev.split(REVISION_RANGE_SEPARATOR)
-            validate_revision(start)
-            validate_revision(end)
+            start_rev, end_rev = rev.split(REVISION_RANGE_SEPARATOR)
+            validate_revision(start_rev)
+            validate_revision(end_rev)
 
-            start_num, start_change_num = map(int, start.split(GERRIT_PATCHSET_SEPARATOR))
-            end_num, end_change_num = map(int, end.split(GERRIT_PATCHSET_SEPARATOR))
-            max_change_num = max(start_change_num, end_change_num)
+            start_change_num, start_patchset_num = map(int, start_rev.split(GERRIT_PATCHSET_SEPARATOR))
+            end_change_num, end_patchset_num = map(int, end_rev.split(GERRIT_PATCHSET_SEPARATOR))
+            max_change_num = max(start_patchset_num, end_patchset_num)
             revisions.remove(rev)
-            converted_gerrit_revision = [f"{i}/{start_change_num}" for i in range(start_num, end_num + 1)]
+            converted_gerrit_revision = [f"{i}/{start_patchset_num}" for i in range(start_change_num, end_change_num + 1)]
             revisions.extend(converted_gerrit_revision)
 
     unsuccessful = []
