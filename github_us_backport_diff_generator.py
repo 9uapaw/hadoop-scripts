@@ -87,12 +87,21 @@ def extract_jira_and_paths_from_patch_file(pr_id, patch_file):
     return jira, paths
 
 
+def validate_pr_ids(pr_ids: List[str]):
+    regex = re.compile('\d+', re.I)
+    for pr_id in pr_ids:
+        match = regex.match(pr_id)
+        if not bool(match):
+            raise ValueError("Invalid GitHub PR ID specified: {}".format(pr_id))
+
+
 def process(pr_ids: List[str], timestamp: str):
     home = expanduser("~")
     script_workspace_dir = join_path(home, "github_us_diff_generator")
     script_html_out_dir = join_path(home, "github_us_diff_generator", "html")
     ensure_dir_created(script_workspace_dir)
     ensure_dir_created(script_html_out_dir)
+    validate_pr_ids(pr_ids)
 
     pr_id_to_files = {}
     for pr_id in pr_ids:
