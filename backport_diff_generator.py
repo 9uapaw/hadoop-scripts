@@ -1,4 +1,5 @@
 import argparse
+import json
 import os
 import re
 
@@ -7,6 +8,7 @@ from typing import List
 from zipfile import ZipFile
 import requests
 
+GERRIT_HADOOP_RELATED_API = "https://gerrit.sjc.cloudera.com/changes/cdh%2Fhadoop~{}/revisions/current/related"
 REVISION_RANGE_SEPARATOR = "-"
 GERRIT_PATCHSET_SEPARATOR = "/"
 
@@ -62,7 +64,11 @@ def process(revision: str, max_change_num: int = None):
         content = file.readlines()
         for line in content:
             if line.startswith(COMMIT_MESSAGE_PREFIX):
-                jira = COMMIT_JIRA_REGEX.match(line).groups()[0]
+                match = COMMIT_JIRA_REGEX.match(line)
+                if not match:
+                    print("No Upstream JIRA is found for ", line)
+                    continue
+                jira = match.groups()[0]
             elif line.startswith(PATH_PREFIX):
                 path = line.lstrip(PATH_PREFIX).split(" ")[0].lstrip("a/ ")
                 if path:
@@ -109,6 +115,13 @@ def validate_revision(rev):
         raise ValueError("Invalid revision: '{}'. Must contain character '{}'".format(rev, GERRIT_PATCHSET_SEPARATOR))
 
 
+def load_related_changes(revisions):
+    changes = requests.get(GERRIT_HADOOP_RELATED_API.format(revisions.pop(0)))
+    all_related_changes = json.loads(changes.text.split("\n", 1)[1])
+    for c in all_related_changes['changes']:
+        revisions.append("{}/{}".format(c["_change_number"], c["_current_revision_number"]))
+
+
 if __name__ == "__main__":
     """
     Example usage: backport-diff-generator 140697/1
@@ -116,6 +129,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("revision", nargs="+")
     parser.add_argument("--file")
+    parser.add_argument("--related", action='store_true')
     args = parser.parse_args()
     revisions = args.revision
     rev_copy = revisions.copy()
@@ -124,6 +138,8 @@ if __name__ == "__main__":
     if args.file:
         with open(args.file, 'r') as f:
             revisions = f.readlines()
+    if args.related:
+        load_related_changes(revisions)
 
     for i, rev in enumerate(rev_copy):
         if REVISION_RANGE_SEPARATOR in rev:
